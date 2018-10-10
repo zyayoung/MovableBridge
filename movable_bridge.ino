@@ -34,14 +34,14 @@ int carC_off_bridge_timer = 0;
 int carC_under_bridge = 0;
 int carC_is_waiting = 0;
 
-int distance_left_trigger_time = 0;
-int distance_right_trigger_time = 0;
-int hc_trigger_time = 0;
+int distance_left_trigger_timer = 0;
+int distance_right_trigger_timer = 0;
+int hc_trigger_timer = 0;
 
 bool block_cara = false;
 bool bridge_raised = false;
 
-long microsecondsToCentimeters(long microseconds) {
+long microsecondsToCentimeters(long microseconds) {  // cite: https://www.arduino.cc/en/Tutorial/Ping?from=Tutorial.UltrasoundSensor
   // The speed of sound is 340 m/s or 29 microseconds per centimeter.
   // The ping travels out and back, so to find the distance of the object we
   // take half of the distance travelled.
@@ -49,7 +49,7 @@ long microsecondsToCentimeters(long microseconds) {
 }
 
 
-long hc_read(){
+long hc_read(){  // cite: https://www.arduino.cc/en/Tutorial/Ping?from=Tutorial.UltrasoundSensor
   // This function return the distance read from ultrasonic senser in cm.
 
   long duration, cm;
@@ -108,17 +108,17 @@ void loop() {
   // Update flags
 
   // Update sensor trigger time for robustness
-  if(digitalRead(DISTANCE_LEFT))distance_left_trigger_time += DELAY_PER_LOOP;
-  else distance_left_trigger_time = 0;
-  if(digitalRead(DISTANCE_RIGHT))distance_right_trigger_time += DELAY_PER_LOOP;
-  else distance_right_trigger_time = 0;
-  if(detected_carc())hc_trigger_time += DELAY_PER_LOOP;
-  else hc_trigger_time = 0;
+  if(digitalRead(DISTANCE_LEFT))distance_left_trigger_timer += DELAY_PER_LOOP;
+  else distance_left_trigger_timer = 0;
+  if(digitalRead(DISTANCE_RIGHT))distance_right_trigger_timer += DELAY_PER_LOOP;
+  else distance_right_trigger_timer = 0;
+  if(detected_carc())hc_trigger_timer += DELAY_PER_LOOP;
+  else hc_trigger_timer = 0;
   
   // Make accurate states of the sensors
-  carA_is_waiting_left = (distance_left_trigger_time > 500) ? 1 : 0;
-  carA_is_waiting_right = (distance_right_trigger_time > 500) ? 1 : 0;
-  carC_is_waiting = (hc_trigger_time > 1000) ? 1 : 0;
+  carA_is_waiting_left = (distance_left_trigger_timer > 500) ? 1 : 0;
+  carA_is_waiting_right = (distance_right_trigger_timer > 500) ? 1 : 0;
+  carC_is_waiting = (hc_trigger_timer > 1000) ? 1 : 0;
 
   // Predict whether carA is on the bridge
   if(carA_on_bridge==1 && carA_is_waiting_right)carA_on_bridge = 0;
