@@ -1,4 +1,10 @@
 #include <Servo.h>
+#define DEBUG 2
+
+#define OFF_BRIDGE 0
+#define ENTER_FROM_LEFT 1
+#define ENTER_FROM_RIGHT 2
+
 #define SERVO_LEFT 9
 #define SERVO_RIGHT 10
 #define DISTANCE_LEFT 11
@@ -14,42 +20,44 @@
 #define LIGHT_RED A7
 #define LIGHT_GREEN A6
 
+#define BLOCK_ON_DEGREE 90
+#define BLOCK_OFF_DEGREE 0
 #define CARC_DISTANCE_MIN 30
 #define CARC_DISTANCE_MAX 70
 
 #define DELAY_PER_LOOP 50
 
-#define BLOCK_ON_DEGREE 90
-#define BLOCK_OFF_DEGREE 0
-
 
 Servo s_left;
 Servo s_right;
 
-int carA_on_bridge = 0; // 0 - off bridge;  1 - enter from left;  0 - enter from right 
+int carA_on_bridge = OFF_BRIDGE;
 int carA_is_waiting_left = 0;
 int carA_is_waiting_right = 0;
 int carA_off_bridge_timer = 0;
 int carC_off_bridge_timer = 0;
-int carC_under_bridge = 0;
 int carC_is_waiting = 0;
 
 int distance_left_trigger_timer = 0;
 int distance_right_trigger_timer = 0;
 int hc_trigger_timer = 0;
 
-bool block_cara = false;
 bool bridge_raised = false;
 
-long microsecondsToCentimeters(long microseconds) {  // cite: https://www.arduino.cc/en/Tutorial/Ping?from=Tutorial.UltrasoundSensor
+long microsecondsToCentimeters(long microseconds) {
+  // cite: https://www.arduino.cc/en/Tutorial/Ping?from=Tutorial.UltrasoundSensor
+
   // The speed of sound is 340 m/s or 29 microseconds per centimeter.
   // The ping travels out and back, so to find the distance of the object we
   // take half of the distance travelled.
+
   return microseconds / 29 / 2;
 }
 
 
-long hc_read(){  // cite: https://www.arduino.cc/en/Tutorial/Ping?from=Tutorial.UltrasoundSensor
+long hc_read(){
+  // cite: https://www.arduino.cc/en/Tutorial/Ping?from=Tutorial.UltrasoundSensor
+
   // This function return the distance read from ultrasonic senser in cm.
 
   long duration, cm;
@@ -80,7 +88,10 @@ bool detected_carc(){
 
 void setup() {
   // initialize serial communication:
-  // Serial.begin(9600);
+
+  #if DEBUG
+  Serial.begin(9600);
+  #endif
 
   s_left.attach(SERVO_LEFT);
   s_right.attach(SERVO_RIGHT);
@@ -121,29 +132,25 @@ void loop() {
   carC_is_waiting = (hc_trigger_timer > 1000) ? 1 : 0;
 
   // Predict whether carA is on the bridge
-  if(carA_on_bridge==1 && carA_is_waiting_right)carA_on_bridge = 0;
-  if(carA_on_bridge==2 && carA_is_waiting_left)carA_on_bridge = 0;
-  if(!carA_on_bridge && carA_is_waiting_left)carA_on_bridge = 1;
-  if(!carA_on_bridge && carA_is_waiting_right)carA_on_bridge = 2;
+  if(carA_on_bridge==ENTER_FROM_LEFT && carA_is_waiting_right)carA_on_bridge = OFF_BRIDGE;
+  if(carA_on_bridge==ENTER_FROM_RIGHT && carA_is_waiting_left)carA_on_bridge = OFF_BRIDGE;
+  if(!carA_on_bridge && carA_is_waiting_left)carA_on_bridge = ENTER_FROM_LEFT;
+  if(!carA_on_bridge && carA_is_waiting_right)carA_on_bridge = ENTER_FROM_RIGHT;
 
   // Update off bridge timer
   carA_off_bridge_timer = (carA_on_bridge) ? 0 : carA_off_bridge_timer + DELAY_PER_LOOP;
   carC_off_bridge_timer = (carC_is_waiting) ? 0 : carC_off_bridge_timer + DELAY_PER_LOOP;
-  
-  // Predict whether carC is under the bridge (temporary)
-  if(carC_under_bridge && carC_off_bridge_timer>2000)carC_under_bridge = false;
 
 
   // Take action
 
   // Update Traffic Light
-  block_cara = carC_is_waiting || carC_under_bridge;
-  digitalWrite(LIGHT_RED, block_cara);
-  digitalWrite(LIGHT_GREEN, !block_cara);
+  digitalWrite(LIGHT_RED, carC_is_waiting);
+  digitalWrite(LIGHT_GREEN, !carC_is_waiting);
 
   // Update Blocking System
-  s_left.write((!carA_is_waiting_left && block_cara) ? BLOCK_ON_DEGREE : BLOCK_OFF_DEGREE);
-  s_right.write((!carA_is_waiting_right && block_cara) ? BLOCK_ON_DEGREE : BLOCK_OFF_DEGREE);
+  s_left.write((!carA_is_waiting_left && carC_is_waiting) ? BLOCK_ON_DEGREE : BLOCK_OFF_DEGREE);
+  s_right.write((!carA_is_waiting_right && carC_is_waiting) ? BLOCK_ON_DEGREE : BLOCK_OFF_DEGREE);
 
   // Main Operation: Raise or Lower the bridge
   // maybe we should block here?
@@ -156,11 +163,9 @@ void loop() {
       digitalWrite(MOTOR_LEFT_A, LOW);
       digitalWrite(MOTOR_RIGHT_A, LOW);
     }
-    carC_under_bridge = true;
   }
 
-
-  if(bridge_raised && !carC_under_bridge){
+  if(bridge_raised && carC_off_bridge_timer>2000){
     // Lower the bridge
     digitalWrite(MOTOR_LEFT_B, 1);
     digitalWrite(MOTOR_RIGHT_B, 1);
@@ -169,6 +174,36 @@ void loop() {
     digitalWrite(MOTOR_RIGHT_B, 0);
     bridge_raised = false;
   }
+
+
+  // Debug
+  #if DEBUG
+  char str[100];
+  sprintf(
+    str,
+    "carA\t|on:%d\t|wl:%d\t|wr:%d\t|t:%d\t|carC\t|on:%d\t|t:%d\t|br:%d",
+    carA_on_bridge,
+    carA_is_waiting_left,
+    carA_is_waiting_right,
+    carA_off_bridge_timer,
+    carC_is_waiting,
+    carC_off_bridge_timer,
+    bridge_raised
+  );
+  Serial.println(str);
+  #endif
+
+  #if DEBUG == 2
+  sprintf(
+    str,
+    "distance_left_timer:%d\t|distance_right_timer:%d\t|hc_trigger_timer:%d",
+    distance_left_trigger_timer,
+    distance_right_trigger_timer,
+    hc_trigger_timer
+  );
+  Serial.println(str);
+  #endif
+
   
   // loop 1000/DELAY_PER_LOOP times per second
   delay(DELAY_PER_LOOP);
