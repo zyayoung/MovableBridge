@@ -8,9 +8,9 @@
 #define LEAVING_RIGHT 4
 
 #define SERVO_LEFT 9
-#define SERVO_RIGHT 10
-#define DISTANCE_LEFT 11
-#define DISTANCE_RIGHT 8
+#define SERVO_RIGHT 8
+#define DISTANCE_LEFT A0
+#define DISTANCE_RIGHT A1
 #define HC_TRIG 7
 #define HC_ECHO 6
 #define MOTOR_LEFT_A 5
@@ -19,8 +19,8 @@
 #define MOTOR_RIGHT_B 2
 #define SWITCH_LEFT A3
 #define SWITCH_RIGHT A2
-#define LIGHT_RED 12
-#define LIGHT_GREEN 13
+#define LIGHT_RED 11
+#define LIGHT_GREEN 10
 
 #define BLOCK_ON_DEGREE 90
 #define BLOCK_OFF_DEGREE 0
@@ -136,8 +136,8 @@ void loop() {
   // Make accurate states of the sensors
   carA_is_waiting_left = (distance_left_trigger_timer > 500) ? 1 : 0;
   carA_is_waiting_right = (distance_right_trigger_timer > 500) ? 1 : 0;
-  if(hc_state_changed_timer>500){
-    hc_current_state=!hc_current_state;
+  if(hc_state_changed_timer>1000){
+    hc_current_state =! hc_current_state;
   }
   carC_is_waiting = hc_current_state;
 
@@ -163,7 +163,7 @@ void loop() {
   // Take action
 
   // Update Traffic Light
-  bool redlight = bridge_raised || carC_is_waiting || carC_off_bridge_timer<2000;
+  bool redlight = bridge_raised || carC_off_bridge_timer<2000;
   digitalWrite(LIGHT_RED, redlight);
   digitalWrite(LIGHT_GREEN, !redlight);
 
@@ -173,7 +173,7 @@ void loop() {
 
   // Main Operation: Raise or Lower the bridge
   // Notice that we block the loop here to prevent some strange errors
-  if(!bridge_raised && carC_is_waiting && !carA_on_bridge && carA_off_bridge_timer > 2000){
+  if(!bridge_raised && carC_is_waiting && carA_off_bridge_timer > 2000){
     // Raise the bridge ( pray that compiler can optimize the code below
 
     #if DEBUG_LEVEL
