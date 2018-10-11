@@ -136,7 +136,7 @@ void loop() {
   // Make accurate states of the sensors
   carA_is_waiting_left = (distance_left_trigger_timer > 500) ? 1 : 0;
   carA_is_waiting_right = (distance_right_trigger_timer > 500) ? 1 : 0;
-  if(hc_state_changed_timer>1000){
+  if(hc_state_changed_timer>500){
     hc_current_state=!hc_current_state;
   }
   carC_is_waiting = hc_current_state;
@@ -144,8 +144,14 @@ void loop() {
   // Predict whether carA is on the bridge
   if(carA_on_bridge==ENTER_FROM_LEFT && carA_is_waiting_right)carA_on_bridge = LEAVING_RIGHT;
   else if(carA_on_bridge == ENTER_FROM_RIGHT && carA_is_waiting_left)carA_on_bridge = LEAVING_LEFT;
-  else if(carA_on_bridge == LEAVING_LEFT && !carA_is_waiting_left)carA_on_bridge = OFF_BRIDGE;
-  else if(carA_on_bridge == LEAVING_RIGHT && !carA_is_waiting_right)carA_on_bridge = OFF_BRIDGE;
+  else if(carA_on_bridge == LEAVING_LEFT && !carA_is_waiting_left){
+    carA_on_bridge = OFF_BRIDGE;
+    delay(1000);  // easy but not elegant
+  }
+  else if(carA_on_bridge == LEAVING_RIGHT && !carA_is_waiting_right){
+    carA_on_bridge = OFF_BRIDGE;
+    delay(1000);  // easy but not elegant
+  }
   else if(carA_on_bridge == OFF_BRIDGE && carA_is_waiting_left && carA_off_bridge_timer>5000)carA_on_bridge = ENTER_FROM_LEFT;
   else if(carA_on_bridge == OFF_BRIDGE && carA_is_waiting_right && carA_off_bridge_timer>5000)carA_on_bridge = ENTER_FROM_RIGHT;
 
@@ -162,8 +168,8 @@ void loop() {
   digitalWrite(LIGHT_GREEN, !redlight);
 
   // Update Blocking System
-  s_left.write((!carA_is_waiting_left && carA_off_bridge_timer > 1000 && redlight) ? BLOCK_ON_DEGREE : BLOCK_OFF_DEGREE);
-  s_right.write((!carA_is_waiting_right && carA_off_bridge_timer > 1000 && redlight) ? BLOCK_ON_DEGREE : BLOCK_OFF_DEGREE);
+  s_left.write((!carA_is_waiting_left && redlight) ? BLOCK_ON_DEGREE : BLOCK_OFF_DEGREE);
+  s_right.write((!carA_is_waiting_right && redlight) ? BLOCK_ON_DEGREE : BLOCK_OFF_DEGREE);
 
   // Main Operation: Raise or Lower the bridge
   // Notice that we block the loop here to prevent some strange errors
@@ -172,10 +178,9 @@ void loop() {
 
     #if DEBUG_LEVEL
     Serial.println("Raiseing the bridge.");
-    delay(2000);
     #endif
 
-    while(0&&!digitalRead(SWITCH_LEFT) || !digitalRead(SWITCH_RIGHT)){
+    while(!digitalRead(SWITCH_LEFT) || !digitalRead(SWITCH_RIGHT)){
       digitalWrite(MOTOR_LEFT_A, !digitalRead(SWITCH_LEFT));
       digitalWrite(MOTOR_RIGHT_A, !digitalRead(SWITCH_RIGHT));
       delay(1);
@@ -194,7 +199,7 @@ void loop() {
 
     digitalWrite(MOTOR_LEFT_B, 1);
     digitalWrite(MOTOR_RIGHT_B, 1);
-    delay(8000);
+    delay(2000);
     digitalWrite(MOTOR_LEFT_B, 0);
     digitalWrite(MOTOR_RIGHT_B, 0);
     bridge_raised = 0;
