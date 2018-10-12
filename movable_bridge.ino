@@ -180,10 +180,13 @@ void loop() {
     Serial.println("Raiseing the bridge.");
     #endif
 
+    unsigned long t_start = millis();
+
     while(!digitalRead(SWITCH_LEFT) || !digitalRead(SWITCH_RIGHT)){
       digitalWrite(MOTOR_LEFT_A, !digitalRead(SWITCH_LEFT));
       digitalWrite(MOTOR_RIGHT_A, !digitalRead(SWITCH_RIGHT));
       delay(1);
+      if(millis()-t_start>20000)break;
     }
     bridge_raised = 1;
     digitalWrite(MOTOR_LEFT_A, LOW);
