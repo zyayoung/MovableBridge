@@ -22,8 +22,8 @@
 #define LIGHT_RED 11
 #define LIGHT_GREEN 10
 
-#define BLOCK_ON_DEGREE 90
-#define BLOCK_OFF_DEGREE 0
+#define BLOCK_ON_DEGREE 135
+#define BLOCK_OFF_DEGREE 45
 #define CARC_DISTANCE_MIN 5
 #define CARC_DISTANCE_MAX 70
 
@@ -58,7 +58,7 @@ long microsecondsToCentimeters(long microseconds) {
 }
 
 
-long hc_read(){
+long hc_read() {
   // cite: https://www.arduino.cc/en/Tutorial/Ping?from=Tutorial.UltrasoundSensor
 
   // This function return the distance read from ultrasonic senser in cm.
@@ -83,11 +83,11 @@ long hc_read(){
   return cm;
 }
 
-bool detected_carc(){
+bool detected_carc() {
   long distance = hc_read();
-  #if DEBUG_LEVEL
+#if DEBUG_LEVEL
   delay(20);
-  #endif
+#endif
   return CARC_DISTANCE_MIN < distance && distance < CARC_DISTANCE_MAX;
 }
 
@@ -95,9 +95,9 @@ bool detected_carc(){
 void setup() {
   // initialize serial communication:
 
-  #if DEBUG_LEVEL
+#if DEBUG_LEVEL
   Serial.begin(115200);
-  #endif
+#endif
 
   s_left.attach(SERVO_LEFT);
   s_right.attach(SERVO_RIGHT);
@@ -126,34 +126,34 @@ void loop() {
   // Update flags
 
   // Update sensor trigger time for robustness
-  if(!digitalRead(DISTANCE_LEFT))distance_left_trigger_timer += DELAY_PER_LOOP;
+  if (!digitalRead(DISTANCE_LEFT))distance_left_trigger_timer += DELAY_PER_LOOP;
   else distance_left_trigger_timer = 0;
-  if(!digitalRead(DISTANCE_RIGHT))distance_right_trigger_timer += DELAY_PER_LOOP;
+  if (!digitalRead(DISTANCE_RIGHT))distance_right_trigger_timer += DELAY_PER_LOOP;
   else distance_right_trigger_timer = 0;
-  if(detected_carc() ^ hc_current_state)hc_state_changed_timer += DELAY_PER_LOOP;
+  if (detected_carc() ^ hc_current_state)hc_state_changed_timer += DELAY_PER_LOOP;
   else hc_state_changed_timer = 0;
-  
+
   // Make accurate states of the sensors
   carA_is_waiting_left = (distance_left_trigger_timer > 500) ? 1 : 0;
   carA_is_waiting_right = (distance_right_trigger_timer > 500) ? 1 : 0;
-  if(hc_state_changed_timer>1000){
-    hc_current_state =! hc_current_state;
+  if (hc_state_changed_timer > 1000) {
+    hc_current_state = ! hc_current_state;
   }
   carC_is_waiting = hc_current_state;
 
   // Predict whether carA is on the bridge
-  if(carA_on_bridge==ENTER_FROM_LEFT && carA_is_waiting_right)carA_on_bridge = LEAVING_RIGHT;
-  else if(carA_on_bridge == ENTER_FROM_RIGHT && carA_is_waiting_left)carA_on_bridge = LEAVING_LEFT;
-  else if(carA_on_bridge == LEAVING_LEFT && !carA_is_waiting_left){
+  if (carA_on_bridge == ENTER_FROM_LEFT && carA_is_waiting_right)carA_on_bridge = LEAVING_RIGHT;
+  else if (carA_on_bridge == ENTER_FROM_RIGHT && carA_is_waiting_left)carA_on_bridge = LEAVING_LEFT;
+  else if (carA_on_bridge == LEAVING_LEFT && !carA_is_waiting_left) {
     carA_on_bridge = OFF_BRIDGE;
-    delay(1000);  // easy but not elegant
+    delay(2000);  // easy but not elegant
   }
-  else if(carA_on_bridge == LEAVING_RIGHT && !carA_is_waiting_right){
+  else if (carA_on_bridge == LEAVING_RIGHT && !carA_is_waiting_right) {
     carA_on_bridge = OFF_BRIDGE;
-    delay(1000);  // easy but not elegant
+    delay(2000);  // easy but not elegant
   }
-  else if(carA_on_bridge == OFF_BRIDGE && carA_is_waiting_left && carA_off_bridge_timer>5000)carA_on_bridge = ENTER_FROM_LEFT;
-  else if(carA_on_bridge == OFF_BRIDGE && carA_is_waiting_right && carA_off_bridge_timer>5000)carA_on_bridge = ENTER_FROM_RIGHT;
+  else if (carA_on_bridge == OFF_BRIDGE && carA_is_waiting_left && carA_off_bridge_timer > 5000)carA_on_bridge = ENTER_FROM_LEFT;
+  else if (carA_on_bridge == OFF_BRIDGE && carA_is_waiting_right && carA_off_bridge_timer > 5000)carA_on_bridge = ENTER_FROM_RIGHT;
 
   // Update off bridge timer
   carA_off_bridge_timer = (carA_on_bridge) ? 0 : carA_off_bridge_timer + DELAY_PER_LOOP;
@@ -163,54 +163,51 @@ void loop() {
   // Take action
 
   // Update Traffic Light
-  bool redlight = bridge_raised || carC_off_bridge_timer<2000;
+  bool redlight = bridge_raised || carC_off_bridge_timer < 2000;
   digitalWrite(LIGHT_RED, redlight);
   digitalWrite(LIGHT_GREEN, !redlight);
 
   // Update Blocking System
   s_left.write((!carA_is_waiting_left && redlight) ? BLOCK_ON_DEGREE : BLOCK_OFF_DEGREE);
-  s_right.write((!carA_is_waiting_right && redlight) ? BLOCK_ON_DEGREE : BLOCK_OFF_DEGREE);
+  s_right.write((!carA_is_waiting_right && redlight) ? 180 - BLOCK_ON_DEGREE : 180 - BLOCK_OFF_DEGREE);
 
   // Main Operation: Raise or Lower the bridge
   // Notice that we block the loop here to prevent some strange errors
-  if(!bridge_raised && carC_is_waiting && carA_off_bridge_timer > 2000){
+  if (!bridge_raised && carC_is_waiting && carA_off_bridge_timer > 2000) {
     // Raise the bridge ( pray that compiler can optimize the code below
 
-    #if DEBUG_LEVEL
+#if DEBUG_LEVEL
     Serial.println("Raiseing the bridge.");
-    #endif
+#endif
 
-    unsigned long t_start = millis();
-
-    while(!digitalRead(SWITCH_LEFT) || !digitalRead(SWITCH_RIGHT)){
-      digitalWrite(MOTOR_LEFT_A, !digitalRead(SWITCH_LEFT));
-      digitalWrite(MOTOR_RIGHT_A, !digitalRead(SWITCH_RIGHT));
-      delay(1);
-      if(millis()-t_start>20000)break;
-    }
-    bridge_raised = 1;
-    digitalWrite(MOTOR_LEFT_A, LOW);
-    digitalWrite(MOTOR_RIGHT_A, LOW);
-  }
-
-  if(bridge_raised && carC_off_bridge_timer>2000){
-    // Lower the bridge
-
-    #if DEBUG_LEVEL
-    Serial.println("Lowering the bridge.");
-    #endif
+    // Switch is not used here because we are lazy.
 
     digitalWrite(MOTOR_LEFT_B, 1);
     digitalWrite(MOTOR_RIGHT_B, 1);
-    delay(2000);
+    delay(5200);
     digitalWrite(MOTOR_LEFT_B, 0);
     digitalWrite(MOTOR_RIGHT_B, 0);
+    bridge_raised = 1;
+  }
+
+  if (bridge_raised && carC_off_bridge_timer > 2000) {
+    // Lower the bridge
+
+#if DEBUG_LEVEL
+    Serial.println("Lowering the bridge.");
+#endif
+
+    digitalWrite(MOTOR_LEFT_A, 1);
+    digitalWrite(MOTOR_RIGHT_A, 1);
+    delay(4800);
+    digitalWrite(MOTOR_LEFT_A, 0);
+    digitalWrite(MOTOR_RIGHT_A, 0);
     bridge_raised = 0;
   }
 
 
   // Debug
-  #if DEBUG_LEVEL
+#if DEBUG_LEVEL
   char str[100];
   sprintf(
     str,
@@ -224,9 +221,9 @@ void loop() {
     bridge_raised
   );
   Serial.println(str);
-  #endif
+#endif
 
-  #if DEBUG_LEVEL == 2
+#if DEBUG_LEVEL == 2
   sprintf(
     str,
     "distance_left_timer:%lu\t|distance_right_timer:%lu\t|hc_state_changed_timer:%lu|hc:%d\t",
@@ -236,9 +233,9 @@ void loop() {
     hc_read()
   );
   Serial.println(str);
-  #endif
+#endif
 
-  
+
   // loop 1000/DELAY_PER_LOOP times per second
   delay(DELAY_PER_LOOP);
 }
