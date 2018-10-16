@@ -24,12 +24,12 @@
 #define LIGHT_RED 11
 #define LIGHT_GREEN 10
 
-#define BLOCK_ON_DEGREE 140
-#define BLOCK_OFF_DEGREE 40
-#define CARC_DISTANCE_MIN 5
-#define CARC_DISTANCE_MAX 70
+#define BLOCK_ON_DEGREE 145
+#define BLOCK_OFF_DEGREE 45
+#define CARC_DISTANCE_MIN 15
+#define CARC_DISTANCE_MAX 50
 
-#define DELAY_PER_LOOP 100
+#define DELAY_PER_LOOP 101
 
 
 Servo s_left;
@@ -82,7 +82,7 @@ long hc_read() {
 
   // convert the time into a distance
   cm = microsecondsToCentimeters(duration);
-  return cm;
+  return cm+10;
 }
 
 long hcminor_read() {
@@ -99,9 +99,15 @@ long hcminor_read() {
 
 bool detected_carc() {
   long distance = hc_read();
-  delay(20);
+  delay(10);
   long distanceminor = hcminor_read();
-  delay(20);
+  delay(5);
+  
+  #if DEBUG_LEVEL == 2
+  Serial.print(distance);
+  Serial.print(" ");
+  Serial.println(distanceminor);
+  #endif
   return (CARC_DISTANCE_MIN < distance && distance < CARC_DISTANCE_MAX) || (CARC_DISTANCE_MIN < distanceminor && distanceminor < CARC_DISTANCE_MAX);
 }
 
@@ -150,8 +156,8 @@ void loop() {
   else hc_state_changed_timer = 0;
 
   // Make accurate states of the sensors
-  carA_is_waiting_left = (distance_left_trigger_timer > 500) ? 1 : 0;
-  carA_is_waiting_right = (distance_right_trigger_timer > 500) ? 1 : 0;
+  carA_is_waiting_left = (distance_left_trigger_timer > 300) ? 1 : 0;
+  carA_is_waiting_right = (distance_right_trigger_timer > 300) ? 1 : 0;
   if (hc_state_changed_timer > 1000) {
     hc_current_state = ! hc_current_state;
   }
@@ -202,6 +208,7 @@ void loop() {
     digitalWrite(MOTOR_RIGHT_B, 1);
     delay(5200);
     digitalWrite(MOTOR_LEFT_B, 0);
+    delay(100);
     digitalWrite(MOTOR_RIGHT_B, 0);
     bridge_raised = 1;
   }
@@ -215,8 +222,9 @@ void loop() {
 
     digitalWrite(MOTOR_LEFT_A, 1);
     digitalWrite(MOTOR_RIGHT_A, 1);
-    delay(4800);
+    delay(4500);
     digitalWrite(MOTOR_LEFT_A, 0);
+    delay(100);
     digitalWrite(MOTOR_RIGHT_A, 0);
     bridge_raised = 0;
   }
@@ -242,11 +250,10 @@ void loop() {
 #if DEBUG_LEVEL == 2
   sprintf(
     str,
-    "distance_left_timer:%lu\t|distance_right_timer:%lu\t|hc_state_changed_timer:%lu|hc:%d\t",
+    "distance_left_timer:%lu\t|distance_right_timer:%lu\t|hc_state_changed_timer:%lu",
     distance_left_trigger_timer,
     distance_right_trigger_timer,
-    hc_state_changed_timer,
-    hcminor_read()
+    hc_state_changed_timer
   );
   Serial.println(str);
 #endif
