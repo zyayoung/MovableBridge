@@ -13,6 +13,8 @@
 #define DISTANCE_RIGHT A1
 #define HC_TRIG 7
 #define HC_ECHO 6
+#define HCMINOR_TRIG 13
+#define HCMINOR_ECHO 12
 #define MOTOR_LEFT_A 5
 #define MOTOR_RIGHT_A 3
 #define MOTOR_LEFT_B 4
@@ -22,8 +24,8 @@
 #define LIGHT_RED 11
 #define LIGHT_GREEN 10
 
-#define BLOCK_ON_DEGREE 135
-#define BLOCK_OFF_DEGREE 45
+#define BLOCK_ON_DEGREE 140
+#define BLOCK_OFF_DEGREE 40
 #define CARC_DISTANCE_MIN 5
 #define CARC_DISTANCE_MAX 70
 
@@ -83,12 +85,24 @@ long hc_read() {
   return cm;
 }
 
+long hcminor_read() {
+  long duration, cm;
+  digitalWrite(HCMINOR_TRIG, LOW);
+  delayMicroseconds(2);
+  digitalWrite(HCMINOR_TRIG, HIGH);
+  delayMicroseconds(5);
+  digitalWrite(HCMINOR_TRIG, LOW);
+  duration = pulseIn(HCMINOR_ECHO, HIGH, 10000);
+  cm = microsecondsToCentimeters(duration);
+  return cm;
+}
+
 bool detected_carc() {
   long distance = hc_read();
-#if DEBUG_LEVEL
   delay(20);
-#endif
-  return CARC_DISTANCE_MIN < distance && distance < CARC_DISTANCE_MAX;
+  long distanceminor = hcminor_read();
+  delay(20);
+  return (CARC_DISTANCE_MIN < distance && distance < CARC_DISTANCE_MAX) || (CARC_DISTANCE_MIN < distanceminor && distanceminor < CARC_DISTANCE_MAX);
 }
 
 
@@ -103,6 +117,7 @@ void setup() {
   s_right.attach(SERVO_RIGHT);
   pinMode(SERVO_RIGHT, OUTPUT);
   pinMode(HC_TRIG, OUTPUT);
+  pinMode(HCMINOR_TRIG, OUTPUT);
   pinMode(MOTOR_LEFT_A, OUTPUT);
   pinMode(MOTOR_RIGHT_A, OUTPUT);
   pinMode(MOTOR_LEFT_B, OUTPUT);
@@ -114,6 +129,7 @@ void setup() {
   pinMode(SWITCH_LEFT, INPUT);
   pinMode(SWITCH_RIGHT, INPUT);
   pinMode(HC_ECHO, INPUT);
+  pinMode(HCMINOR_ECHO, INPUT);
 
   digitalWrite(MOTOR_LEFT_A, LOW);
   digitalWrite(MOTOR_LEFT_B, LOW);
@@ -169,7 +185,7 @@ void loop() {
 
   // Update Blocking System
   s_left.write((!carA_is_waiting_left && redlight) ? BLOCK_ON_DEGREE : BLOCK_OFF_DEGREE);
-  s_right.write((!carA_is_waiting_right && redlight) ? 180 - BLOCK_ON_DEGREE : 180 - BLOCK_OFF_DEGREE);
+  s_right.write((!carA_is_waiting_right && redlight) ? BLOCK_ON_DEGREE : BLOCK_OFF_DEGREE);
 
   // Main Operation: Raise or Lower the bridge
   // Notice that we block the loop here to prevent some strange errors
@@ -230,7 +246,7 @@ void loop() {
     distance_left_trigger_timer,
     distance_right_trigger_timer,
     hc_state_changed_timer,
-    hc_read()
+    hcminor_read()
   );
   Serial.println(str);
 #endif
