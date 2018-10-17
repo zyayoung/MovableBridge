@@ -78,7 +78,7 @@ long hc_read() {
   // The same pin is used to read the signal from the PING))): a HIGH pulse
   // whose duration is the time (in microseconds) from the sending of the ping
   // to the reception of its echo off of an object.
-  duration = pulseIn(HC_ECHO, HIGH, 10000);
+  duration = pulseIn(HC_ECHO, HIGH, 8000);
 
   // convert the time into a distance
   cm = microsecondsToCentimeters(duration);
@@ -92,16 +92,16 @@ long hcminor_read() {
   digitalWrite(HCMINOR_TRIG, HIGH);
   delayMicroseconds(5);
   digitalWrite(HCMINOR_TRIG, LOW);
-  duration = pulseIn(HCMINOR_ECHO, HIGH, 10000);
+  duration = pulseIn(HCMINOR_ECHO, HIGH, 8000);
   cm = microsecondsToCentimeters(duration);
   return cm;
 }
 
 bool detected_carc() {
   long distance = hc_read();
-  delay(10);
+  delay(35);
+  
   long distanceminor = hcminor_read();
-  delay(5);
   
   #if DEBUG_LEVEL == 2
   Serial.print(distance);
@@ -156,8 +156,8 @@ void loop() {
   else hc_state_changed_timer = 0;
 
   // Make accurate states of the sensors
-  carA_is_waiting_left = (distance_left_trigger_timer > 300) ? 1 : 0;
-  carA_is_waiting_right = (distance_right_trigger_timer > 300) ? 1 : 0;
+  carA_is_waiting_left = (distance_left_trigger_timer >= 250) ? 1 : 0;
+  carA_is_waiting_right = (distance_right_trigger_timer >= 250) ? 1 : 0;
   if (hc_state_changed_timer > 1000) {
     hc_current_state = ! hc_current_state;
   }
@@ -190,8 +190,8 @@ void loop() {
   digitalWrite(LIGHT_GREEN, !redlight);
 
   // Update Blocking System
-  s_left.write((!carA_is_waiting_left && redlight) ? BLOCK_ON_DEGREE : BLOCK_OFF_DEGREE);
-  s_right.write((!carA_is_waiting_right && redlight) ? BLOCK_ON_DEGREE : BLOCK_OFF_DEGREE);
+  s_left.write((!carA_is_waiting_left && redlight) ? BLOCK_ON_DEGREE-18 : BLOCK_OFF_DEGREE-18);
+  s_right.write((!carA_is_waiting_right && redlight) ? BLOCK_ON_DEGREE-5 : BLOCK_OFF_DEGREE-5);
 
   // Main Operation: Raise or Lower the bridge
   // Notice that we block the loop here to prevent some strange errors
@@ -206,10 +206,10 @@ void loop() {
 
     digitalWrite(MOTOR_LEFT_B, 1);
     digitalWrite(MOTOR_RIGHT_B, 1);
-    delay(5200);
-    digitalWrite(MOTOR_LEFT_B, 0);
-    delay(100);
+    delay(5380);
     digitalWrite(MOTOR_RIGHT_B, 0);
+    delay(20);
+    digitalWrite(MOTOR_LEFT_B, 0);
     bridge_raised = 1;
   }
 
@@ -222,10 +222,10 @@ void loop() {
 
     digitalWrite(MOTOR_LEFT_A, 1);
     digitalWrite(MOTOR_RIGHT_A, 1);
-    delay(4500);
-    digitalWrite(MOTOR_LEFT_A, 0);
-    delay(100);
+    delay(4730);
     digitalWrite(MOTOR_RIGHT_A, 0);
+    delay(20);
+    digitalWrite(MOTOR_LEFT_A, 0);
     bridge_raised = 0;
   }
 
@@ -260,5 +260,5 @@ void loop() {
 
 
   // loop 1000/DELAY_PER_LOOP times per second
-  delay(DELAY_PER_LOOP);
+  delay(DELAY_PER_LOOP-25);  // minus 25 to cancel the delay in detecing the big car C
 }
