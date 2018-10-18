@@ -13,6 +13,8 @@
 #define DISTANCE_RIGHT A1
 #define HC_TRIG 7
 #define HC_ECHO 6
+#define HCMINOR_TRIG 13
+#define HCMINOR_ECHO 12
 #define MOTOR_LEFT_A 5
 #define MOTOR_RIGHT_A 3
 #define MOTOR_LEFT_B 4
@@ -22,12 +24,12 @@
 #define LIGHT_RED 11
 #define LIGHT_GREEN 10
 
-#define BLOCK_ON_DEGREE 135
+#define BLOCK_ON_DEGREE 145
 #define BLOCK_OFF_DEGREE 45
-#define CARC_DISTANCE_MIN 5
-#define CARC_DISTANCE_MAX 70
+#define CARC_DISTANCE_MIN 15
+#define CARC_DISTANCE_MAX 50
 
-#define DELAY_PER_LOOP 100
+#define DELAY_PER_LOOP 101
 
 
 Servo s_left;
@@ -76,19 +78,37 @@ long hc_read() {
   // The same pin is used to read the signal from the PING))): a HIGH pulse
   // whose duration is the time (in microseconds) from the sending of the ping
   // to the reception of its echo off of an object.
-  duration = pulseIn(HC_ECHO, HIGH, 10000);
+  duration = pulseIn(HC_ECHO, HIGH, 8000);
 
   // convert the time into a distance
+  cm = microsecondsToCentimeters(duration);
+  return cm+10;
+}
+
+long hcminor_read() {
+  long duration, cm;
+  digitalWrite(HCMINOR_TRIG, LOW);
+  delayMicroseconds(2);
+  digitalWrite(HCMINOR_TRIG, HIGH);
+  delayMicroseconds(5);
+  digitalWrite(HCMINOR_TRIG, LOW);
+  duration = pulseIn(HCMINOR_ECHO, HIGH, 8000);
   cm = microsecondsToCentimeters(duration);
   return cm;
 }
 
 bool detected_carc() {
   long distance = hc_read();
-#if DEBUG_LEVEL
-  delay(20);
-#endif
-  return CARC_DISTANCE_MIN < distance && distance < CARC_DISTANCE_MAX;
+  delay(35);
+  
+  long distanceminor = hcminor_read();
+  
+  #if DEBUG_LEVEL == 2
+  Serial.print(distance);
+  Serial.print(" ");
+  Serial.println(distanceminor);
+  #endif
+  return (CARC_DISTANCE_MIN < distance && distance < CARC_DISTANCE_MAX) || (CARC_DISTANCE_MIN < distanceminor && distanceminor < CARC_DISTANCE_MAX);
 }
 
 
@@ -103,6 +123,7 @@ void setup() {
   s_right.attach(SERVO_RIGHT);
   pinMode(SERVO_RIGHT, OUTPUT);
   pinMode(HC_TRIG, OUTPUT);
+  pinMode(HCMINOR_TRIG, OUTPUT);
   pinMode(MOTOR_LEFT_A, OUTPUT);
   pinMode(MOTOR_RIGHT_A, OUTPUT);
   pinMode(MOTOR_LEFT_B, OUTPUT);
@@ -114,6 +135,7 @@ void setup() {
   pinMode(SWITCH_LEFT, INPUT);
   pinMode(SWITCH_RIGHT, INPUT);
   pinMode(HC_ECHO, INPUT);
+  pinMode(HCMINOR_ECHO, INPUT);
 
   digitalWrite(MOTOR_LEFT_A, LOW);
   digitalWrite(MOTOR_LEFT_B, LOW);
@@ -134,8 +156,8 @@ void loop() {
   else hc_state_changed_timer = 0;
 
   // Make accurate states of the sensors
-  carA_is_waiting_left = (distance_left_trigger_timer > 500) ? 1 : 0;
-  carA_is_waiting_right = (distance_right_trigger_timer > 500) ? 1 : 0;
+  carA_is_waiting_left = (distance_left_trigger_timer >= 250) ? 1 : 0;
+  carA_is_waiting_right = (distance_right_trigger_timer >= 250) ? 1 : 0;
   if (hc_state_changed_timer > 1000) {
     hc_current_state = ! hc_current_state;
   }
@@ -168,8 +190,8 @@ void loop() {
   digitalWrite(LIGHT_GREEN, !redlight);
 
   // Update Blocking System
-  s_left.write((!carA_is_waiting_left && redlight) ? BLOCK_ON_DEGREE : BLOCK_OFF_DEGREE);
-  s_right.write((!carA_is_waiting_right && redlight) ? 180 - BLOCK_ON_DEGREE : 180 - BLOCK_OFF_DEGREE);
+  s_left.write((!carA_is_waiting_left && redlight) ? BLOCK_ON_DEGREE-18 : BLOCK_OFF_DEGREE-18);
+  s_right.write((!carA_is_waiting_right && redlight) ? BLOCK_ON_DEGREE-5 : BLOCK_OFF_DEGREE-5);
 
   // Main Operation: Raise or Lower the bridge
   // Notice that we block the loop here to prevent some strange errors
@@ -184,9 +206,10 @@ void loop() {
 
     digitalWrite(MOTOR_LEFT_B, 1);
     digitalWrite(MOTOR_RIGHT_B, 1);
-    delay(5200);
-    digitalWrite(MOTOR_LEFT_B, 0);
+    delay(5380);
     digitalWrite(MOTOR_RIGHT_B, 0);
+    delay(20);
+    digitalWrite(MOTOR_LEFT_B, 0);
     bridge_raised = 1;
   }
 
@@ -199,9 +222,10 @@ void loop() {
 
     digitalWrite(MOTOR_LEFT_A, 1);
     digitalWrite(MOTOR_RIGHT_A, 1);
-    delay(4800);
-    digitalWrite(MOTOR_LEFT_A, 0);
+    delay(4730);
     digitalWrite(MOTOR_RIGHT_A, 0);
+    delay(20);
+    digitalWrite(MOTOR_LEFT_A, 0);
     bridge_raised = 0;
   }
 
@@ -226,16 +250,15 @@ void loop() {
 #if DEBUG_LEVEL == 2
   sprintf(
     str,
-    "distance_left_timer:%lu\t|distance_right_timer:%lu\t|hc_state_changed_timer:%lu|hc:%d\t",
+    "distance_left_timer:%lu\t|distance_right_timer:%lu\t|hc_state_changed_timer:%lu",
     distance_left_trigger_timer,
     distance_right_trigger_timer,
-    hc_state_changed_timer,
-    hc_read()
+    hc_state_changed_timer
   );
   Serial.println(str);
 #endif
 
 
   // loop 1000/DELAY_PER_LOOP times per second
-  delay(DELAY_PER_LOOP);
+  delay(DELAY_PER_LOOP-25);  // minus 25 to cancel the delay in detecing the big car C
 }
