@@ -32,6 +32,10 @@ To use this state, if the state is true (which means that there is a ship waitin
 
 In out project, we use varnished wire.
 
+1. Solder all 5v and GND together
+2. Cut Dupont lines and extent it with varnished wire (remember to remove varnish before connecting)
+3. Connect other cables
+
 ## Group members
 
 - Dong Yulong
